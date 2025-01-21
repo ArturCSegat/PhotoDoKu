@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Camera Web App</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        canvas {
+            display: none;
+        }
+    </style>
+</head>
+<body id="body">
+    <video id="video" autoplay muted playsinline></video>
+    <canvas id="canvas"></canvas>
+    <button id="captureButton">Take Picture</button>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const button = document.getElementById('captureButton');
+        
+        // Set up autoplay, muted, playsinline attributes
+        video.setAttribute('autoplay', '');
+        video.setAttribute('muted', '');
+        video.setAttribute('playsinline', '');
+
+        async function initializeCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: 'environment' },
+                });
+
+                // Safari workaround
+                // if (navigator.userAgent.includes("Safari") && !navigator.userAgent.includes("Chrome")) {
+                //     video.src = URL.createObjectURL(stream); // Safari workaround
+                // } else {
+                //     video.srcObject = stream; // Other browsers use srcObject
+                // }
+                video.srcObject = stream
+            } catch (err) {
+                document.getElementById("body").style.background = "green"
+                console.error('Error accessing camera:', err);
+            }
+        }
+
+        async function captureAndUploadImage() {
+            const context = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+
+            // Draw the current video frame onto the canvas
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Convert the canvas content to a Blob with error handling
+            canvas.toBlob(async (blob) => {
+                if (!blob) {
+                    console.error('Error creating blob from canvas');
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('image', blob, 'capture.png');
+                console.log(formData);
+
+                try {
+                    const response = await fetch('https://192.168.100.44:5000/upload', {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to upload image');
+                    }
+
+                    const data = await response.json();
+                    console.log('Image uploaded successfully:', data);
+                } catch (err) {
+                    console.error('Error uploading image:', err);
+                }
+            }, 'image/png');
+        }
+
+        button.addEventListener('click', captureAndUploadImage);
+
+        initializeCamera();
+    </script>
+</body>
+</html>
+
